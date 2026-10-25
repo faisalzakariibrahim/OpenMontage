@@ -41,12 +41,16 @@ production:
   render_runtime: remotion           # pre-approved; agent must still log both runtimes as considered
   captions: word_level_burned_in
   narration: required
-  music: generate                    # AI instrumental via provider_preferences.music, mixed quietly under the voice
+  music: optional                    # nice-to-have: never blocks a video (see fallback chain below)
   provider_preferences:              # first AVAILABLE in the registry wins; never use an unlisted paid provider
     tts: [openai_tts]                      # OPENAI_API_KEY
     image: [openai_image, pexels_image]    # OPENAI_API_KEY, PEXELS_API_KEY
     video: [pexels_video]                  # PEXELS_API_KEY; stock b-roll only, AI video clips off (cost)
-    music: [fal_elevenlabs_music]          # FAL_KEY; instrumental only, no vocals
+    music: [fal_elevenlabs_music, music_library, none]  # FAL_KEY AI instrumental -> your music_library/ tracks -> no music
+  # Every list above is a PRE-APPROVED fallback chain, tried in order. If a provider is unavailable OR fails
+  # (bad key, no credit, outage, quota), the agent moves to the next one and logs a fallback_decision.
+  # A run only blocks when a REQUIRED element runs out of options.
+  required_elements: [narration, visuals, captions]
 
 approval_policy:
   pre_authorized_full_run: true      # set false to make the agent stop at every gate (interactive only)
