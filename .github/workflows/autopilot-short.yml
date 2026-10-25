@@ -6,7 +6,8 @@ name: Autopilot short
 # Security model:
 #   produce  - runs the agent. Holds ANTHROPIC + generation keys. NO platform credentials.
 #   publish  - no agent. Holds YouTube/TikTok credentials. Re-validates the agent's output first.
-# A prompt-injected agent therefore cannot reach the channel accounts.
+# A prompt-injected agent therefore cannot reach the channel accounts. The agent needs a general
+# shell (Python tools, ffmpeg, Remotion); git push, gh, curl, wget, ssh and scp are denied.
 
 on:
   schedule:
@@ -73,9 +74,8 @@ jobs:
             --model "${{ vars.AUTOPILOT_MODEL || 'claude-sonnet-5-5' }}" \
             --max-budget-usd "${{ vars.AUTOPILOT_MAX_LLM_USD || '5' }}" \
             --permission-mode dontAsk \
-            --allowedTools "Read" "Write" "Edit" "Glob" "Grep" "WebSearch" "WebFetch" \
-              "Bash(python *)" "Bash(python3 *)" "Bash(ffprobe *)" "Bash(ffmpeg *)" \
-              "Bash(npx remotion *)" "Bash(npx hyperframes *)" "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" \
+            --allowedTools "Read" "Write" "Edit" "Glob" "Grep" "WebSearch" "WebFetch" "Bash" \
+            --disallowedTools "Bash(git push *)" "Bash(gh *)" "Bash(curl *)" "Bash(wget *)" "Bash(ssh *)" "Bash(scp *)" \
             --output-format stream-json --verbose \
             > projects/autopilot-run.jsonl 2> projects/autopilot-stderr.log || echo "claude exited with code $?"
           tail -c 2000 projects/autopilot-run.jsonl
