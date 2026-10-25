@@ -114,6 +114,8 @@ existing="$(gh secret list --repo "$REPO" --json name --jq '.[].name' 2>/dev/nul
 for key in $API_KEYS; do
   if printf '%s\n' "$existing" | grep -qx "$key"; then note=" (already saved — Enter keeps it)"; else note=""; fi
   read -r -s -p "  $key$note: " value; echo
+  # Strip terminal bracketed-paste markers, control characters and surrounding whitespace.
+  value="$(printf '%s' "$value" | tr -d '[:cntrl:]' | sed -e 's/\[20[01]~//g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
   if [ -n "$value" ]; then
     printf '%s' "$value" | gh secret set "$key" --repo "$REPO"
     echo "    saved"
