@@ -178,7 +178,14 @@ jobs:
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
-        run: python scripts/autopilot_publish.py ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          python scripts/autopilot_publish.py ${{ inputs.dry_run && '--dry-run' || '' }} | tee publish-output.txt
+          {
+            echo "## Upload result${{ inputs.dry_run && ' (DRY RUN: nothing was posted)' || '' }}"
+            echo '```'
+            cat publish-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remember published topic
         if: always()

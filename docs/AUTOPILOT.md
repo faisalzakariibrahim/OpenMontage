@@ -70,6 +70,10 @@ Settings → Secrets and variables → Actions.
 Actions → **Autopilot short** → Run workflow → tick **dry_run**. Download the artifact, watch
 `renders/final.mp4`, and read `autopilot-run.jsonl` to see every decision the agent made. Then run it for real.
 
+**Uploading a dry-run video for real:** you don't need to make it again. Copy the number at the end of the
+dry run's URL (`…/actions/runs/<run_id>`), then go to Actions → **Autopilot publish existing video** → Run workflow,
+paste the run ID, and approve the upload. Artifacts are kept for 14 days.
+
 ## Step 7: Review mode, then hands-off
 For 2–3 weeks, keep `AUTO_PUBLISH=false`: YouTube uploads stay private and TikTok uploads arrive as drafts.
 Check facts against the `source_urls`, then publish. When you trust it, set `AUTO_PUBLISH=true`.
