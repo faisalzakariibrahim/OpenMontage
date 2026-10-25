@@ -41,11 +41,12 @@ production:
   render_runtime: remotion           # pre-approved; agent must still log both runtimes as considered
   captions: word_level_burned_in
   narration: required
-  music: music_library_or_none       # use a track from music_library/ if present, otherwise no music
+  music: generate                    # AI instrumental via provider_preferences.music, mixed quietly under the voice
   provider_preferences:              # first AVAILABLE in the registry wins; never use an unlisted paid provider
-    tts: [elevenlabs_tts, google_tts, openai_tts, azure_tts, piper_tts]
-    image: [flux_image, google_imagen, openai_image, pexels_image, pixabay_image]
-    video: [pexels_video, pixabay_video]   # stock b-roll only; AI video clips are off by default (cost)
+    tts: [openai_tts]                      # OPENAI_API_KEY
+    image: [openai_image, pexels_image]    # OPENAI_API_KEY, PEXELS_API_KEY
+    video: [pexels_video]                  # PEXELS_API_KEY; stock b-roll only, AI video clips off (cost)
+    music: [fal_elevenlabs_music]          # FAL_KEY; instrumental only, no vocals
 
 approval_policy:
   pre_authorized_full_run: true      # set false to make the agent stop at every gate (interactive only)
