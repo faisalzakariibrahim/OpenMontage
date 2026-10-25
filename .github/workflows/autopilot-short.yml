@@ -106,6 +106,14 @@ jobs:
           err = pathlib.Path("projects/autopilot-stderr.log")
           if err.exists() and err.read_text(errors="ignore").strip():
               print("\n**Agent stderr (last 40 lines):**\n\n```\n" + "\n".join(err.read_text(errors="ignore").splitlines()[-40:]) + "\n```")
+          for req in pathlib.Path("projects").glob("*/autopilot/publish_request.json"):
+              try:
+                  data = json.loads(req.read_text())
+              except json.JSONDecodeError:
+                  continue
+              print(f"\n**Video:** {data.get('title', '')}  ·  {data.get('duration_seconds', '?')}s")
+              for w in data.get("warnings") or []:
+                  print(f"- ⚠️ {w}")
           for blocked in pathlib.Path("projects").glob("*/autopilot/blocked.json"):
               print(f"\n**Blocked report** (`{blocked}`):\n\n```json\n{blocked.read_text()[:3000]}\n```")
           EOF
