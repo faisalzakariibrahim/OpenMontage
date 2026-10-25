@@ -77,8 +77,38 @@ jobs:
               "Bash(python *)" "Bash(python3 *)" "Bash(ffprobe *)" "Bash(ffmpeg *)" \
               "Bash(npx remotion *)" "Bash(npx hyperframes *)" "Bash(cd *)" "Bash(ls *)" "Bash(mkdir *)" \
             --output-format stream-json --verbose \
-            > projects/autopilot-run.jsonl
+            > projects/autopilot-run.jsonl 2> projects/autopilot-stderr.log || echo "claude exited with code $?"
           tail -c 2000 projects/autopilot-run.jsonl
+          tail -n 40 projects/autopilot-stderr.log
+
+      - name: Report agent result on the run summary page
+        if: always()
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          lines = pathlib.Path("projects/autopilot-run.jsonl").read_text(errors="ignore").splitlines() \
+              if pathlib.Path("projects/autopilot-run.jsonl").exists() else []
+          events = []
+          for line in lines:
+              try:
+                  events.append(json.loads(line))
+              except json.JSONDecodeError:
+                  pass
+          result = next((e for e in reversed(events) if e.get("type") == "result"), None)
+          print("## Autopilot agent result\n")
+          if result:
+              print(f"- **Outcome:** {result.get('subtype')} (error: {result.get('is_error')})")
+              print(f"- **Turns:** {result.get('num_turns')}  ·  **Claude cost:** ${result.get('total_cost_usd', 0):.2f}")
+              print(f"- **Duration:** {round((result.get('duration_ms') or 0) / 60000, 1)} min\n")
+              print("**Final message:**\n\n```\n" + str(result.get("result", ""))[:3000] + "\n```")
+          else:
+              print(f"No result event: the agent did not finish ({len(events)} events logged).")
+          err = pathlib.Path("projects/autopilot-stderr.log")
+          if err.exists() and err.read_text(errors="ignore").strip():
+              print("\n**Agent stderr (last 40 lines):**\n\n```\n" + "\n".join(err.read_text(errors="ignore").splitlines()[-40:]) + "\n```")
+          for blocked in pathlib.Path("projects").glob("*/autopilot/blocked.json"):
+              print(f"\n**Blocked report** (`{blocked}`):\n\n```json\n{blocked.read_text()[:3000]}\n```")
+          EOF
 
       - name: Check hand-off
         run: |
@@ -97,6 +127,7 @@ jobs:
           name: autopilot-${{ github.run_id }}
           path: |
             projects/autopilot-run.jsonl
+            projects/autopilot-stderr.log
             projects/*/renders/final.mp4
             projects/*/autopilot/
             projects/*/artifacts/
