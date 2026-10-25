@@ -54,7 +54,7 @@ approval_policy:
   on_blocker: fail_run               # never substitute providers/runtimes silently; fail and report
 
 publishing:
-  platforms: [youtube, tiktok]
+  platforms: [youtube]          # add tiktok -> [youtube, tiktok] once TIKTOK_* secrets are set
   # false = YouTube private + TikTok inbox draft (you review, then post)
   # true  = YouTube public + TikTok direct post (TikTok stays private until your app is audited)
   auto_publish: false
