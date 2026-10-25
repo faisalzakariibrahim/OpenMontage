@@ -1,0 +1,84 @@
+name: Autopilot publish existing video
+
+# Upload a video an earlier "Autopilot short" run already produced (e.g. after a dry run),
+# without generating a new one. Same safety as the normal publish job: no LLM, the
+# social-publish environment approval gate, and full re-validation of the hand-off.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID of the Autopilot short run (the number at the end of its URL)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autopilot-short
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: social-publish
+    permissions:
+      contents: write   # commit autopilot/history.json
+      actions: read     # download the artifact from the earlier run
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: System packages
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - run: pip install -r requirements.txt
+
+      - name: Check run ID
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          case "$RUN_ID" in (''|*[!0-9]*) echo "::error::run_id must be digits only"; exit 1;; esac
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: autopilot-${{ inputs.run_id }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: projects
+
+      - name: Upload to platforms
+        env:
+          AUTO_PUBLISH: ${{ vars.AUTO_PUBLISH }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+        run: |
+          python scripts/autopilot_publish.py | tee publish-output.txt
+          {
+            echo "## Upload result"
+            echo '```'
+            cat publish-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remember published topic
+        if: always()
+        run: |
+          git config user.name "openmontage-autopilot"
+          git config user.email "openmontage-autopilot@users.noreply.github.com"
+          git add autopilot/history.json
+          if ! git diff --cached --quiet; then
+            git commit -m "autopilot: record published topic"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
