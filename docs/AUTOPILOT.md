@@ -90,9 +90,10 @@ Check facts against the `source_urls`, then publish. When you trust it, set `AUT
   video is vertical and 8–180 seconds long with ffprobe, and the publisher tools strip control characters and enforce platform limits.
 - **Least privilege:** the YouTube token has `youtube.upload` scope only. Workflow permissions default to
   `contents: read`, and only the publish job gets `contents: write` (to commit `history.json`).
-- **Agent allow-list:** Claude Code runs with `--permission-mode dontAsk` and an explicit tool allow-list.
-  Note that `Bash(python *)` is still broad, which is why the generation keys in that job should have
-  provider-side **spend limits**.
+- **Agent permissions:** Claude Code runs with `--permission-mode dontAsk`. It gets a general shell,
+  because the pipeline needs Python, ffmpeg and Remotion, but `git push`, `gh`, `curl`, `wget`, `ssh` and `scp`
+  are denied. A shell can still reach the network through Python, so the protection that matters is the
+  credential split above, plus provider-side **spend limits** on the generation keys in that job.
 - **Egress monitoring:** `step-security/harden-runner` starts in `audit` mode. After a few runs, copy the
   observed endpoints into `allowed-endpoints` and switch to `block`.
 - **No double posts:** the upload tools never auto-retry.
