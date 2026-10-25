@@ -1,1 +1,13 @@
-{"published": []}
+{
+  "published": [
+    {
+      "topic_key": "https://www.bleepingcomputer.com/news/security/abandoned-popcorn-time-app-exposed-millions-of-device-to-rce-attacks/",
+      "title": "Old Popcorn Time App Could Hand Over Your PC",
+      "project_id": "popcorn-time-zombie-app",
+      "date": "2026-10-25T06:47:09+00:00",
+      "results": {
+        "youtube": "https://www.youtube.com/shorts/FbxDvGTOo7c"
+      }
+    }
+  ]
+}
