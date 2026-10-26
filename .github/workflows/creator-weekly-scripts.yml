@@ -60,6 +60,16 @@ jobs:
             --output-format stream-json --verbose \
             > projects/creator-batch/run.jsonl 2> projects/creator-batch/stderr.log || echo "claude exited with code $?"
           tail -n 20 projects/creator-batch/stderr.log
+
+      - name: Report agent result
+        if: always()
+        run: |
+          python scripts/agent_run_summary.py projects/creator-batch/run.jsonl projects/creator-batch/stderr.log \
+            --title "Script writer result" >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -s projects/creator-batch/scripts.json ]; then
+            echo "::error::The agent did not write projects/creator-batch/scripts.json (see Summary)"
+            exit 1
+          fi
           python scripts/creator_send_scripts.py projects/creator-batch/scripts.json \
             --out /dev/null --dry-run >> "$GITHUB_STEP_SUMMARY"
 

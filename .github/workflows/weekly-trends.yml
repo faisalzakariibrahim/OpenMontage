@@ -57,6 +57,10 @@ jobs:
             > projects/trends/run.jsonl 2> projects/trends/stderr.log || echo "claude exited with code $?"
           tail -n 20 projects/trends/stderr.log
 
+      - name: Report agent result
+        if: always()
+        run: python scripts/agent_run_summary.py projects/trends/run.jsonl projects/trends/stderr.log >> "$GITHUB_STEP_SUMMARY"
+
       - name: Show the report on the Summary page
         if: always()
         run: |

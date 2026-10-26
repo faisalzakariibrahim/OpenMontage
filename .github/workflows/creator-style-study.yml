@@ -84,6 +84,10 @@ jobs:
             > projects/style-study/run.jsonl 2> projects/style-study/stderr.log || echo "claude exited with code $?"
           tail -n 20 projects/style-study/stderr.log
 
+      - name: Report agent result
+        if: always()
+        run: python scripts/agent_run_summary.py projects/style-study/run.jsonl projects/style-study/stderr.log >> "$GITHUB_STEP_SUMMARY"
+
       - name: Show the style guide on the Summary page
         if: always()
         run: |
