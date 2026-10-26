@@ -228,7 +228,7 @@ Every ref is one speaker, vertical 9:16 and handheld selfie style. Every ref run
 
 **Wrap-up (2 min)**
 - Check the audio in the first and last take. Look at one frame for focus and exposure.
-- Upload the clips with the script ids in the file names (`S1-take1.mp4`, …).
+- Send each clip as a **reply to its script message in Telegram**, or name the file with the script id (`W44-1-take1.mp4`, …) when sending from the Mac or the Drive inbox.
 
 ---
 
