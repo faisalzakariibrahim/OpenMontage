@@ -1,0 +1,147 @@
+name: Creator style study
+
+# Downloads reference videos (top posts from the creators you admire + any links you paste),
+# runs OpenMontage's reference analyzer, and has Claude write creator/style-guide.md + style.json.
+# The analysis job holds no write access. A second job (no LLM) pushes only those two files to a
+# branch, so you can review them in a pull request.
+
+on:
+  workflow_dispatch:
+    inputs:
+      profiles:
+        description: "Creator profile URLs (space-separated)"
+        default: "https://www.tiktok.com/@marcinteodoru https://www.tiktok.com/@sabrina_ramonov"
+        type: string
+      video_urls:
+        description: "Specific video URLs you love (optional, space-separated)"
+        default: ""
+        type: string
+      per_profile:
+        description: "Top videos to study per profile"
+        default: "3"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: creator-style-study
+  cancel-in-progress: false
+
+jobs:
+  study:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: System packages
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install OpenMontage + analysis extras
+        run: |
+          pip install -r requirements.txt
+          pip install --upgrade "yt-dlp[default,curl-cffi]" faster-whisper "scenedetect[opencv-headless]" youtube-transcript-api
+
+      - name: Pick reference videos
+        env:
+          PROFILES: ${{ inputs.profiles }}
+          VIDEO_URLS: ${{ inputs.video_urls }}
+          PER_PROFILE: ${{ inputs.per_profile }}
+        run: |
+          python scripts/creator_pick_references.py --profiles "$PROFILES" --urls "$VIDEO_URLS" \
+            --per-profile "$PER_PROFILE" --out projects/style-study/references.json
+          cat projects/style-study/references.json
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Analyze and write the style guide
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "$(cat creator/style-study-prompt.md)" \
+            --model "${{ vars.AUTOPILOT_MODEL || 'claude-sonnet-5-5' }}" \
+            --max-budget-usd "${{ vars.STYLE_STUDY_MAX_LLM_USD || '4' }}" \
+            --permission-mode dontAsk \
+            --allowedTools "Read" "Write" "Edit" "Glob" "Grep" "Bash" \
+            --disallowedTools "Bash(git push *)" "Bash(gh *)" "Bash(curl *)" "Bash(wget *)" "Bash(ssh *)" "Bash(scp *)" \
+            --output-format stream-json --verbose \
+            > projects/style-study/run.jsonl 2> projects/style-study/stderr.log || echo "claude exited with code $?"
+          tail -n 20 projects/style-study/stderr.log
+
+      - name: Show the style guide on the Summary page
+        if: always()
+        run: |
+          if [ -s creator/style-guide.md ] && python -c "import json; json.load(open('creator/style.json'))"; then
+            cat creator/style-guide.md >> "$GITHUB_STEP_SUMMARY"
+            mkdir -p out && cp creator/style-guide.md creator/style.json out/
+          else
+            echo "## Style guide was not produced" >> "$GITHUB_STEP_SUMMARY"
+            tail -n 40 projects/style-study/stderr.log >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: style-guide-${{ github.run_id }}
+          path: out/
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: style-study-workdir-${{ github.run_id }}
+          path: |
+            projects/style-study/references.json
+            projects/style-study/run.jsonl
+            projects/style-study/stderr.log
+            projects/style-study/ref-*/video_analysis_brief.json
+            projects/style-study/ref-*/keyframes/
+          retention-days: 14
+
+  propose:
+    needs: study
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # push a review branch (only creator/style-guide.md and creator/style.json)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: style-guide-${{ github.run_id }}
+          path: incoming
+
+      - name: Validate and push review branch
+        run: |
+          set -euo pipefail
+          for f in style-guide.md style.json; do
+            [ -f "incoming/$f" ] || { echo "::error::missing $f"; exit 1; }
+            [ "$(wc -c < "incoming/$f")" -lt 200000 ] || { echo "::error::$f too large"; exit 1; }
+          done
+          python -c "import json; d=json.load(open('incoming/style.json')); assert isinstance(d, dict)"
+          cp incoming/style-guide.md creator/style-guide.md
+          cp incoming/style.json creator/style.json
+          branch="creator-style-${GITHUB_RUN_ID}"
+          git config user.name "openmontage-autopilot"
+          git config user.email "openmontage-autopilot@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add creator/style-guide.md creator/style.json
+          git commit -m "creator: style guide from reference study (run ${GITHUB_RUN_ID})"
+          git push origin "$branch"
+          echo "## Review branch: \`$branch\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Open a pull request from it to adopt this style guide." >> "$GITHUB_STEP_SUMMARY"
