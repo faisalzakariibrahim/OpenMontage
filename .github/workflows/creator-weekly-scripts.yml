@@ -1,0 +1,110 @@
+name: Creator weekly scripts
+
+# Monday morning: Claude researches trending AI-tool and cyber topics (last30days) and writes this
+# week's face-to-camera scripts. A second job (no LLM) validates them, sends them to your Telegram,
+# and saves the batch in creator/batches/<week>/ so clips can be matched to scripts later.
+
+on:
+  schedule:
+    - cron: "7 11 * * 1"   # Mondays 7:07 AM New York (EDT). Cron is UTC.
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: creator-weekly-scripts
+  cancel-in-progress: false
+
+jobs:
+  write:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: pip install -r requirements.txt
+
+      - name: Install last30days trend research (pinned, cookies off)
+        continue-on-error: true
+        uses: ./.github/actions/setup-last30days
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Write this week's scripts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}   # last30days reranking (cents)
+        run: |
+          mkdir -p projects/creator-batch
+          claude -p "$(cat creator/weekly-scripts-prompt.md)" \
+            --model "${{ vars.AUTOPILOT_MODEL || 'claude-sonnet-5-5' }}" \
+            --max-budget-usd "${{ vars.SCRIPTS_MAX_LLM_USD || '3' }}" \
+            --permission-mode dontAsk \
+            --allowedTools "Read" "Write" "Edit" "Glob" "Grep" "WebSearch" "WebFetch" "Bash" \
+            --disallowedTools "Bash(git push *)" "Bash(gh *)" "Bash(curl *)" "Bash(wget *)" "Bash(ssh *)" "Bash(scp *)" \
+            --output-format stream-json --verbose \
+            > projects/creator-batch/run.jsonl 2> projects/creator-batch/stderr.log || echo "claude exited with code $?"
+          tail -n 20 projects/creator-batch/stderr.log
+          python scripts/creator_send_scripts.py projects/creator-batch/scripts.json \
+            --out /dev/null --dry-run >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: creator-batch-${{ github.run_id }}
+          path: projects/creator-batch/
+          retention-days: 30
+
+  deliver:
+    needs: write
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # save creator/batches/<week>/ (scripts + Telegram message ids)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install requests
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: creator-batch-${{ github.run_id }}
+          path: incoming
+
+      - name: Send to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python scripts/creator_send_scripts.py incoming/scripts.json --out incoming/telegram.json
+
+      - name: Save the batch
+        run: |
+          set -euo pipefail
+          week="$(python -c "import json,re; w=json.load(open('incoming/scripts.json'))['week']; assert re.fullmatch(r'\d{4}-W\d{2}', w); print(w)")"
+          mkdir -p "creator/batches/$week"
+          cp incoming/scripts.json incoming/telegram.json "creator/batches/$week/"
+          git config user.name "openmontage-autopilot"
+          git config user.email "openmontage-autopilot@users.noreply.github.com"
+          git add "creator/batches/$week"
+          git commit -m "creator: scripts for $week"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "## Sent $week scripts to Telegram" >> "$GITHUB_STEP_SUMMARY"
