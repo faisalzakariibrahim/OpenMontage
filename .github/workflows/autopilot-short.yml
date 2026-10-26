@@ -56,6 +56,11 @@ jobs:
           pip install -r requirements.txt
           cd remotion-composer && npm ci && npx remotion browser ensure
 
+      - name: Install last30days trend research (pinned, cookies off)
+        if: ${{ vars.TREND_ENGINE != 'none' }}
+        continue-on-error: true   # optional: the agent falls back to news sources without it
+        uses: ./.github/actions/setup-last30days
+
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
@@ -112,6 +117,8 @@ jobs:
               except json.JSONDecodeError:
                   continue
               print(f"\n**Video:** {data.get('title', '')}  ·  {data.get('duration_seconds', '?')}s")
+              if data.get("topic_reason"):
+                  print(f"\n**Why this topic:** {data['topic_reason']}")
               for w in data.get("warnings") or []:
                   print(f"- ⚠️ {w}")
           for blocked in pathlib.Path("projects").glob("*/autopilot/blocked.json"):
@@ -140,6 +147,8 @@ jobs:
             projects/*/autopilot/
             projects/*/artifacts/
             projects/*/checkpoint_*.json
+            projects/*/research/
+            projects/research/
           retention-days: 14
 
   publish:

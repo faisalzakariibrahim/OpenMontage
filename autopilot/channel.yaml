@@ -32,6 +32,12 @@ content:
     - End with what the viewer should DO to protect themselves.
     - Never repeat a topic listed in autopilot/history.json.
 
+research:
+  trend_engine: last30days           # pinned in .github/actions/setup-last30days; set to none to disable
+  trend_domain: "cybersecurity, online scams, privacy, hacking news and AI safety for everyday people"
+  sources: [reddit, hackernews, youtube, polymarket, github, grounding]   # free sources only, no keys
+  fallback: content.sources          # used when last30days fails or finds nothing solid
+
 production:
   pipeline: animated-explainer
   media_profile: youtube_shorts      # 1080x1920 vertical

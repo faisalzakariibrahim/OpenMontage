@@ -1,0 +1,63 @@
+name: Setup last30days (pinned)
+description: >
+  Installs the last30days social-research engine (github.com/mvanhorn/last30days-skill) at a
+  reviewed, pinned commit, with free sources only and every browser-cookie path forced off.
+  Exposes LAST30DAYS_PYTHON / LAST30DAYS_ENGINE to later steps. Run after OpenMontage's own
+  Python setup: it adds Python 3.12 WITHOUT changing the default `python`.
+
+runs:
+  using: composite
+  steps:
+    - id: py
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        update-environment: false   # keep OpenMontage's default python untouched
+
+    - shell: bash
+      env:
+        L30_REPO: https://github.com/mvanhorn/last30days-skill
+        # Reviewed 2026-10-26 (v3.30.0). To upgrade: review the diff, then change this SHA.
+        L30_SHA: 6f9052cca8fcafad9055c438b7b3f9112f2ee20f
+        L30_PY: ${{ steps.py.outputs.python-path }}
+      run: |
+        set -euo pipefail
+        src="$RUNNER_TEMP/last30days-src"
+        skill="$RUNNER_TEMP/last30days"
+        rm -rf "$src" "$skill"
+        git init -q "$src"
+        git -C "$src" fetch -q --depth 1 "$L30_REPO" "$L30_SHA"
+        git -C "$src" checkout -q FETCH_HEAD
+        [ "$(git -C "$src" rev-parse HEAD)" = "$L30_SHA" ] || { echo "::error::last30days SHA mismatch"; exit 1; }
+        cp -R "$src/skills/last30days" "$skill"
+        rm -rf "$skill/assets" "$src"
+
+        # YouTube source (search, view counts, transcripts). Installed into the default python.
+        python -m pip install --quiet --upgrade yt-dlp
+
+        # Global config: setup done, no browser cookies on any path, no hosted backends.
+        mkdir -p "$HOME/.config/last30days"
+        umask 077
+        cat > "$HOME/.config/last30days/.env" <<'EOF'
+        SETUP_COMPLETE=true
+        FROM_BROWSER=off
+        BROWSER_CONSENT=false
+        AGENTCOOKIE=off
+        LAST30DAYS_LIBRARY_CONTEXT=off
+        EOF
+        sed -i 's/^ *//' "$HOME/.config/last30days/.env"
+
+        {
+          echo "LAST30DAYS_PYTHON=$L30_PY"
+          echo "LAST30DAYS_SKILL_DIR=$skill"
+          echo "LAST30DAYS_ENGINE=$skill/scripts/last30days.py"
+          echo "FROM_BROWSER=off"
+          echo "BROWSER_CONSENT=false"
+          echo "AGENTCOOKIE=off"
+          echo "LAST30DAYS_ENRICH_BUDGET_SECONDS=300"
+          echo "LAST30DAYS_MEMORY_DIR=$GITHUB_WORKSPACE/projects/research"
+        } >> "$GITHUB_ENV"
+
+        mkdir -p "$GITHUB_WORKSPACE/projects/research"
+        "$L30_PY" -I "$skill/scripts/last30days.py" --diagnose --no-browser-cookies \
+          | "$L30_PY" -c 'import json,sys; d=json.load(sys.stdin); print("last30days sources:", ", ".join(d.get("available_sources", []))); print("browser cookies:", d.get("browser_cookies", {}).get("mode"))'

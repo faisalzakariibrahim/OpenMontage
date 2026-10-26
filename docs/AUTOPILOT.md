@@ -87,6 +87,24 @@ Check facts against the `source_urls`, then publish. When you trust it, set `AUT
 
 ---
 
+## Trend research (last30days)
+
+Topics come from what people are actually discussing, not just the newest headline.
+[last30days](https://github.com/mvanhorn/last30days-skill) scans Reddit, Hacker News, YouTube, Polymarket
+and GitHub for the last 30 days. It uses free sources only, needs no keys, and never reads browser cookies.
+
+- **Daily video, news mode:** discovery ranks the cyber/AI topics with real engagement. The agent picks the
+  best one for an everyday-user explainer and falls back to `content.sources` if nothing qualifies.
+- **Every video:** topic research mines the most-asked questions for the hook and script, checks which YouTube
+  angles already have views so ours differs, and adds a comment-bait question to the description. The run
+  Summary shows **"Why this topic"**.
+- **Weekly trend report:** Actions → **Weekly trend report** (Mondays, or Run workflow). The Summary page
+  shows the top 5 video ideas, a series idea, agency angles and ready-to-paste lines for `autopilot/topics.txt`.
+  It costs about $0.50-2 in Claude usage.
+- **Pinned and reviewed:** `.github/actions/setup-last30days` installs one reviewed commit. To upgrade,
+  review the diff, then change `L30_SHA`. To switch it off, set the repo variable `TREND_ENGINE=none`, or set
+  `research.trend_engine: none` in `channel.yaml`.
+
 ## Security model
 - **Credential split:** the agent job never sees platform credentials, and the upload job runs no AI.
   A malicious web page that injects instructions into the agent can't reach your channels.
