@@ -1,0 +1,85 @@
+name: Weekly trend report
+
+# Every Monday: last30days scans Reddit, Hacker News, YouTube, Polymarket and GitHub for what people
+# are discussing in cyber/AI, and Claude turns it into video ideas, a series idea and agency angles.
+# Read-only: no video, no upload, no repo writes. The report shows on the run's Summary page.
+
+on:
+  schedule:
+    - cron: "7 12 * * 1"   # Mondays 8:07 AM New York (EDT). Cron is UTC.
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-trends
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install last30days trend research (pinned, cookies off)
+        uses: ./.github/actions/setup-last30days
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Build the trend report
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}   # used by last30days to rerank results (cents)
+        run: |
+          mkdir -p projects/trends
+          claude -p "$(cat autopilot/trend-report-prompt.md)" \
+            --model "${{ vars.AUTOPILOT_MODEL || 'claude-sonnet-5-5' }}" \
+            --max-budget-usd "${{ vars.TRENDS_MAX_LLM_USD || '2' }}" \
+            --permission-mode dontAsk \
+            --allowedTools "Read" "Write" "Edit" "Glob" "Grep" "WebSearch" "WebFetch" "Bash" \
+            --disallowedTools "Bash(git push *)" "Bash(gh *)" "Bash(curl *)" "Bash(wget *)" "Bash(ssh *)" "Bash(scp *)" \
+            --output-format stream-json --verbose \
+            > projects/trends/run.jsonl 2> projects/trends/stderr.log || echo "claude exited with code $?"
+          tail -n 20 projects/trends/stderr.log
+
+      - name: Show the report on the Summary page
+        if: always()
+        run: |
+          if [ -s projects/trends/trend-report.md ]; then
+            cat projects/trends/trend-report.md >> "$GITHUB_STEP_SUMMARY"
+            if [ -s projects/trends/topic-ideas.txt ]; then
+              {
+                echo
+                echo "## Topic lines ready for autopilot/topics.txt"
+                echo '```'
+                cat projects/trends/topic-ideas.txt
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "## Trend report was not produced" >> "$GITHUB_STEP_SUMMARY"
+            tail -n 40 projects/trends/stderr.log >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trends-${{ github.run_id }}
+          path: projects/
+          retention-days: 30
