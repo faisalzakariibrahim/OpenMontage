@@ -9,11 +9,11 @@ on:
   workflow_dispatch:
     inputs:
       profiles:
-        description: "Creator profile URLs (space-separated)"
-        default: "https://www.tiktok.com/@marcinteodoru https://www.tiktok.com/@sabrina_ramonov"
+        description: "Creator profile URLs to also sample (optional, space-separated)"
+        default: ""
         type: string
       video_urls:
-        description: "Specific video URLs you love (optional, space-separated)"
+        description: "Extra video URLs (optional; creator/references.txt is always included)"
         default: ""
         type: string
       per_profile:
@@ -31,7 +31,7 @@ concurrency:
 jobs:
   study:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: step-security/harden-runner@v2
         with:
@@ -62,7 +62,8 @@ jobs:
           VIDEO_URLS: ${{ inputs.video_urls }}
           PER_PROFILE: ${{ inputs.per_profile }}
         run: |
-          python scripts/creator_pick_references.py --profiles "$PROFILES" --urls "$VIDEO_URLS" \
+          SAVED="$(grep -v '^#' creator/references.txt 2>/dev/null | tr '\n' ' ' || true)"
+          python scripts/creator_pick_references.py --profiles "$PROFILES" --urls "$VIDEO_URLS $SAVED" \
             --per-profile "$PER_PROFILE" --out projects/style-study/references.json
           cat projects/style-study/references.json
 
@@ -75,7 +76,7 @@ jobs:
         run: |
           claude -p "$(cat creator/style-study-prompt.md)" \
             --model "${{ vars.AUTOPILOT_MODEL || 'claude-sonnet-5-5' }}" \
-            --max-budget-usd "${{ vars.STYLE_STUDY_MAX_LLM_USD || '4' }}" \
+            --max-budget-usd "${{ vars.STYLE_STUDY_MAX_LLM_USD || '6' }}" \
             --permission-mode dontAsk \
             --allowedTools "Read" "Write" "Edit" "Glob" "Grep" "Bash" \
             --disallowedTools "Bash(git push *)" "Bash(gh *)" "Bash(curl *)" "Bash(wget *)" "Bash(ssh *)" "Bash(scp *)" \
