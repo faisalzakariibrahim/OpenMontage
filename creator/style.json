@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "target_duration_seconds": [45, 70],
+  "avg_shot_seconds": 4.0,
+  "zoom": {"every_seconds": 4, "scale": 1.12},
+  "captions": {
+    "words_per_card": 3,
+    "case": "upper",
+    "primary_color": "#FFFFFF",
+    "highlight_color": "#FFD400",
+    "position": "lower_third_78pct",
+    "font_weight": 800
+  },
+  "broll_every_seconds": 5,
+  "screen_demo_share": 0.35,
+  "music": {"level_db": -24},
+  "sfx_on_cuts": false,
+  "hook_rules": [
+    "Speech starts at 0.0s; no greeting, intro or logo",
+    "First sentence states the stakes or payoff; never bait the video cannot pay off",
+    "Hook card on screen from frame 1: 4-7 words, top third, held 2-4s",
+    "Use a number, a counting setup, a bold specific claim or a 'you could be at risk' line",
+    "Look into the lens, eyes ~30% from top of frame"
+  ],
+  "structure": [
+    {"beat": "hook", "start": 0, "end": 3},
+    {"beat": "why_it_matters", "start": 3, "end": 9},
+    {"beat": "step_1", "start": 9, "end": 19},
+    {"beat": "step_2", "start": 19, "end": 29},
+    {"beat": "step_3", "start": 29, "end": 39},
+    {"beat": "payoff_do_this_today", "start": 39, "end": 50},
+    {"beat": "cta_follow", "start": 50, "end": 58}
+  ],
+  "measured": {"avg_shot_seconds_range": [1.2, 28], "wpm_range": [160, 225], "notes": "zoom, caption colours and sizes estimated from keyframes; music level and sfx are best-practice defaults, not measured"},
+  "sources": [
+    "https://www.tiktok.com/t/ZPLAnmBRV/",
+    "https://www.tiktok.com/t/ZPLAny5wL/",
+    "https://www.tiktok.com/t/ZPLAnmGfL/",
+    "https://www.tiktok.com/t/ZPLAnywKE/",
+    "https://www.tiktok.com/t/ZPLAnxgna/",
+    "https://www.tiktok.com/t/ZPLAnQBod/",
+    "https://www.tiktok.com/t/ZPLAnUAMH/",
+    "https://www.tiktok.com/t/ZPLAnmNJA/",
+    "https://www.tiktok.com/t/ZPLAnXokG/"
+  ]
+}
