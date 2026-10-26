@@ -58,6 +58,25 @@ production:
   # A run only blocks when a REQUIRED element runs out of options.
   required_elements: [narration, visuals, captions]
 
+creator:
+  # Creator mode: the owner films face-to-camera clips from weekly scripts; OpenMontage edits them.
+  enabled: true
+  topics: "AI tools people can use today + cybersecurity tips for everyday people"
+  topic_mix: {ai_tool: 3, cyber_tip: 2}      # per weekly batch
+  scripts_per_week: 5
+  trend_domain: "new AI tools, AI productivity tips, AI scams and online safety for everyday people"
+  style_guide: creator/style-guide.md        # written by the Creator style study workflow
+  style_spec: creator/style.json
+  delivery: telegram                         # TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets
+  visuals:
+    # Pre-approved order for anything that isn't the owner on camera:
+    # 1. real screen recording of the tool's PUBLIC page (playwright-recording, never logged in)
+    # 2. synthetic screen (Remotion TerminalScene / mock UI) for scams, phishing, or anything unsafe to visit
+    # 3. stock B-roll (pexels_video) for abstract ideas only
+    order: [screen_recording, synthetic_screen, stock_broll]
+    never_visit: [phishing pages, scam sites, malware, login-required pages]
+  budget_usd_per_video: 8.00
+
 approval_policy:
   pre_authorized_full_run: true      # set false to make the agent stop at every gate (interactive only)
   budget_usd_per_video: 3.00         # hard cap also enforced by --max-budget-usd in the workflow
